@@ -58,6 +58,7 @@ main{max-width:1100px;margin:0 auto;padding:18px 20px 40px}
 .chip{min-height:40px}
 .chip-en{display:block;font-size:10px;color:var(--muted)}
 .composer{display:flex;gap:6px;padding:10px;border-top:1px solid var(--line);background:#fff}
+#micBtn{padding:8px 12px;font-size:18px;line-height:1}#micBtn.rec{background:#e0475f;color:#fff;animation:micp 1s infinite}@keyframes micp{50%{opacity:.6}}
 .composer input{flex:1;min-width:0;border:1px solid var(--line);border-radius:999px;padding:10px 14px;font:inherit}
 .btn{background:var(--brand);color:#fff;border:0;border-radius:999px;padding:9px 16px;font:inherit;font-weight:600;cursor:pointer}
 .btn.sec{background:#fff;color:var(--brand);border:1px solid var(--brand)}
@@ -126,9 +127,11 @@ footer{max-width:1100px;margin:0 auto;padding:0 20px 30px;font-size:12px;color:v
         <div class="chat" id="chat" role="log" aria-live="polite" aria-label="Conversation with Saheli"></div>
         <label style="display:flex;gap:8px;align-items:center;padding:6px 12px;font-size:12px;color:var(--muted);border-top:1px solid var(--line);background:#fff"><input type="checkbox" id="autoSpeak"> Speak every reply aloud in her language (voice-note mode)</label>
         <form class="composer" id="composer">
-          <input id="inp" aria-label="Your message" autocomplete="off" placeholder="Type or paste a voice-note transcript (English, Hindi, Marathi)">
+          <input id="inp" aria-label="Your message" autocomplete="off" placeholder="Type, or tap 🎤 and speak (Hindi, Marathi, Punjabi, Gujarati, Bengali, English)">
+          <button class="btn sec" type="button" id="micBtn" aria-label="Speak your message" title="Speak">🎤</button>
           <button class="btn" type="submit">Send</button>
         </form>
+        <div id="micHint" class="muted" style="display:none;font-size:12px;padding:0 12px 8px">Listening… speak now, in your language</div>
       </div>
     </div>
     <div>
@@ -1162,6 +1165,23 @@ document.getElementById("restartBtn").onclick=()=>{
   renderTags(); renderScreens(); renderCases(); document.querySelector('nav button[data-view="asha"]').textContent="2. ASHA assistant";
   bot("Namaste, I'm Saheli. This is a private space. You can tell me anything about your body, your health or your work, in your own words.","नमस्ते, मैं सहेली हूँ। यह आपकी निजी जगह है। अपने शरीर, सेहत या काम के बारे में कुछ भी, अपने शब्दों में बताइए।", "", "नमस्कार, मी सहेली. ही तुमची खाजगी जागा आहे. तुमचं शरीर, तब्येत किंवा काम याबद्दल काहीही, तुमच्या शब्दांत सांगा.");
 };
+
+/* ---------- Voice input (browser speech recognition) ---------- */
+(function(){
+  const btn=document.getElementById("micBtn"), hint=document.getElementById("micHint"), inp=document.getElementById("inp");
+  const SR=window.SpeechRecognition||window.webkitSpeechRecognition; let rec=null, on=false, finalText="";
+  function stop(){ on=false; btn.classList.remove("rec"); hint.style.display="none"; }
+  btn.onclick=()=>{
+    if(!SR){ toast("Voice input needs Chrome or Edge. In the field, women send a WhatsApp voice note or speak on the phone line, and Indian-language speech models (Bhashini, AI4Bharat) turn it into text."); return; }
+    if(on){ try{ rec.stop(); }catch(_){} return; }
+    const L=S.langManual||S.lang||"hi";
+    rec=new SR(); rec.lang=(LANGS[L]||LANGS.hi)[1]; rec.interimResults=true; rec.continuous=false; finalText="";
+    rec.onresult=e=>{ let interim=""; for(let i=e.resultIndex;i<e.results.length;i++){ const t=e.results[i][0].transcript; if(e.results[i].isFinal) finalText+=t; else interim+=t; } inp.value=(finalText+interim).trim(); };
+    rec.onerror=e=>{ stop(); toast(e.error==="not-allowed"||e.error==="service-not-allowed"?"Microphone access was blocked. Allow the microphone for this site, or type instead.":"Could not hear clearly. Please try again or type."); };
+    rec.onend=()=>{ const t=inp.value.trim(); stop(); if(t && finalText.trim()){ inp.value=""; send(t); } };
+    try{ rec.start(); on=true; btn.classList.add("rec"); hint.textContent="Listening in "+(LANGS[L]||LANGS.hi)[0]+"… tap 🎤 again to stop. Change the language with the selector above."; hint.style.display="block"; }catch(_){ stop(); }
+  };
+})();
 </script>
 </body>
 </html>
